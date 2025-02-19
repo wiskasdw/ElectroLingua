@@ -1,4 +1,6 @@
 ﻿using ElectroLingua.Models;
+using ElectroLingua.Views;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -33,7 +35,6 @@ namespace ElectroLingua.ViewModels
             }
         }
 
-
         public ICommand AddStudentCommand { get; }
         public ICommand EditStudentCommand { get; }
         public ICommand DeleteStudentCommand { get; }
@@ -56,18 +57,62 @@ namespace ElectroLingua.ViewModels
 
         private void AddStudent(object parameter)
         {
-            // Implement your Add Student logic here
-            MessageBox.Show("Add");
+            // Create the StudentForm and StudentFormViewModel
+            var addStudentWindow = new StudentForm();
+            var viewModel = new StudentFormViewModel(); // Create StudentFormViewModel
+
+            addStudentWindow.DataContext = viewModel;
+            // Open the StudentForm as a dialog
+            if (addStudentWindow.ShowDialog() == true)
+            {
+                // If the user clicked "Save", add the new student to the database
+                _dbHelper.AddNewStudent(new Student()
+                {
+                    FirstName = viewModel.FirstName,
+                    LastName = viewModel.LastName,
+                    Email = viewModel.Email,
+                    Phone = viewModel.Phone,
+                });
+                LoadStudents();
+            }
         }
 
         private void EditStudent(object parameter)
         {
-            MessageBox.Show("Edit");
+            if (parameter is Student studentToEdit)
+            {
+                // Create the StudentForm and StudentFormViewModel
+                var editStudentWindow = new StudentForm();
+                var viewModel = new StudentFormViewModel(studentToEdit);
+
+                editStudentWindow.DataContext = viewModel;
+                // Open the StudentForm as a dialog
+                if (editStudentWindow.ShowDialog() == true)
+                {
+                    _dbHelper.UpdateStudent(new Student()
+                    {
+                        StudentID = studentToEdit.StudentID,
+                        FirstName = viewModel.FirstName,
+                        LastName = viewModel.LastName,
+                        Email = viewModel.Email,
+                        Phone = viewModel.Phone,
+                    });
+                    LoadStudents();
+                }
+            }
         }
 
         private void DeleteStudent(object parameter)
         {
-            MessageBox.Show("Delete");
+            if (parameter is Student studentToDelete)
+            {
+                MessageBoxResult result = MessageBox.Show($"Are you sure you want to delete {studentToDelete.FirstName} {studentToDelete.LastName}?", "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (result == MessageBoxResult.Yes)
+                {
+                    _dbHelper.DeleteStudent(studentToDelete.StudentID);
+                    LoadStudents();
+                }
+            }
         }
 
         private bool CanEditDeleteStudent(object parameter)
@@ -81,37 +126,36 @@ namespace ElectroLingua.ViewModels
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
+        //Simple RelayCommand implementation (you might already have one)
+        public class RelayCommand : ICommand
+        {
+            private readonly Action<object> _execute;
+            private readonly Predicate<object> _canExecute;
+
+            public RelayCommand(Action<object> execute) : this(execute, null) { }
+
+            public RelayCommand(Action<object> execute, Predicate<object> canExecute)
+            {
+                _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+                _canExecute = canExecute;
+            }
+
+            public bool CanExecute(object parameter)
+            {
+                return _canExecute == null || _canExecute(parameter);
+            }
+
+            public void Execute(object parameter)
+            {
+                _execute(parameter);
+            }
+
+            public event EventHandler CanExecuteChanged
+            {
+                add { CommandManager.RequerySuggested += value; }
+                remove { CommandManager.RequerySuggested -= value; }
+            }
+        }
     }
-
-    //Simple RelayCommand implementation (you might already have one)
-    public class RelayCommand : ICommand
-    {
-        private readonly Action<object> _execute;
-        private readonly Predicate<object> _canExecute;
-
-        public RelayCommand(Action<object> execute) : this(execute, null) { }
-
-        public RelayCommand(Action<object> execute, Predicate<object> canExecute)
-        {
-            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
-            _canExecute = canExecute;
-        }
-
-        public bool CanExecute(object parameter)
-        {
-            return _canExecute == null || _canExecute(parameter);
-        }
-
-        public void Execute(object parameter)
-        {
-            _execute(parameter);
-        }
-
-        public event EventHandler CanExecuteChanged
-        {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
-        }
-    }
-
 }
